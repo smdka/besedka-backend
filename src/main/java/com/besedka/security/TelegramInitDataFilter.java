@@ -121,19 +121,33 @@ public class TelegramInitDataFilter implements Filter {
     }
 
     private boolean validateHash(Map<String, String> params, String hash) throws Exception {
-        // Use URL-decoded values for data check string
-        String dataCheckString = params.entrySet().stream()
+        // Try with decoded values
+        String decodedCheck = params.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(e -> e.getKey() + "=" + URLDecoder.decode(e.getValue(), StandardCharsets.UTF_8))
                 .collect(Collectors.joining("\n"));
 
+        // Try with raw values
+        String rawCheck = params.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .collect(Collectors.joining("\n"));
+
+        String decodedHash = computeHash(decodedCheck);
+        String rawHash = computeHash(rawCheck);
+
+        log.info("Hash comparison - expected: {}, decoded: {}, raw: {}", hash, decodedHash, rawHash);
+
+        return decodedHash.equals(hash) || rawHash.equals(hash);
+    }
+
+    private String computeHash(String dataCheckString) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec("WebAppData".getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         byte[] secretKey = mac.doFinal(botToken.getBytes(StandardCharsets.UTF_8));
         mac.init(new SecretKeySpec(secretKey, "HmacSHA256"));
         byte[] dataHash = mac.doFinal(dataCheckString.getBytes(StandardCharsets.UTF_8));
-
-        return toHex(dataHash).equals(hash);
+        return toHex(dataHash);
     }
 
     private static String toHex(byte[] bytes) {
