@@ -113,12 +113,12 @@ public class AdminBot extends TelegramLongPollingBot {
 
         String text = "📅 *Новая заявка \\#" + booking.getId() + "*\n"
                 + "🏠 " + escape(booking.getCabin().getName()) + "\n"
-                + "📆 " + booking.getDate().format(DATE_FMT)
-                + " · " + booking.getCheckInTime() + "–" + booking.getCheckOutTime()
+                + "📆 " + escape(booking.getDate().format(DATE_FMT))
+                + " · " + escape(booking.getCheckInTime().toString()) + "–" + escape(booking.getCheckOutTime().toString())
                 + " \\(" + hours + " ч\\)\n"
-                + "💰 " + total.toPlainString() + " ₽\n"
+                + "💰 " + escape(total.toPlainString()) + " ₽\n"
                 + "👤 " + escape(clientDisplay)
-                + reminderLine;
+                + escape(reminderLine);
 
         InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
                 .keyboardRow(List.of(
