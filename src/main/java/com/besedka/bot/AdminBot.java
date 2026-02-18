@@ -111,14 +111,14 @@ public class AdminBot extends TelegramLongPollingBot {
                 ? "\n⏰ Напомнить за " + formatMinutes(booking.getReminderBeforeMinutes())
                 : "";
 
-        String text = "📅 *Новая заявка \\#" + booking.getId() + "*\n"
-                + "🏠 " + escape(booking.getCabin().getName()) + "\n"
-                + "📆 " + escape(booking.getDate().format(DATE_FMT))
-                + " · " + escape(booking.getCheckInTime().toString()) + "–" + escape(booking.getCheckOutTime().toString())
-                + " \\(" + hours + " ч\\)\n"
-                + "💰 " + escape(total.toPlainString()) + " ₽\n"
-                + "👤 " + escape(clientDisplay)
-                + escape(reminderLine);
+        String text = "📅 <b>Новая заявка #" + booking.getId() + "</b>\n"
+                + "🏠 " + escapeHtml(booking.getCabin().getName()) + "\n"
+                + "📆 " + escapeHtml(booking.getDate().format(DATE_FMT))
+                + " · " + booking.getCheckInTime() + "–" + booking.getCheckOutTime()
+                + " (" + hours + " ч)\n"
+                + "💰 " + total.toPlainString() + " ₽\n"
+                + "👤 " + escapeHtml(clientDisplay)
+                + reminderLine;
 
         InlineKeyboardMarkup keyboard = InlineKeyboardMarkup.builder()
                 .keyboardRow(List.of(
@@ -136,7 +136,7 @@ public class AdminBot extends TelegramLongPollingBot {
             var sent = execute(SendMessage.builder()
                     .chatId(adminChannelId)
                     .text(text)
-                    .parseMode(ParseMode.MARKDOWNV2)
+                    .parseMode(ParseMode.HTML)
                     .replyMarkup(keyboard)
                     .build());
             booking.setAdminMessageId(sent.getMessageId());
@@ -186,7 +186,7 @@ public class AdminBot extends TelegramLongPollingBot {
         return h + " " + (h == 1 ? "час" : h < 5 ? "часа" : "часов");
     }
 
-    private static String escape(String text) {
-        return text.replaceAll("([_*\\[\\]()~`>#+\\-=|{}.!\\\\])", "\\\\$1");
+    private static String escapeHtml(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 }
