@@ -73,6 +73,7 @@ public class TelegramInitDataFilter implements Filter {
         try {
             Map<String, String> params = parseInitData(initData);
             String hash = params.remove("hash");
+            params.remove("signature");
 
             if (hash == null || !validateHash(params, hash)) {
                 log.warn("initData hash mismatch, params keys: {}", params.keySet());
