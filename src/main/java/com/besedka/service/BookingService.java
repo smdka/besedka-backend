@@ -1,12 +1,13 @@
 package com.besedka.service;
 
-import com.besedka.bot.AdminBot;
 import com.besedka.dto.BookingRequest;
 import com.besedka.dto.BookingResponse;
+import com.besedka.event.BookingCreatedEvent;
+import com.besedka.event.BookingStatusChangedEvent;
 import com.besedka.model.*;
 import com.besedka.repository.BookingRepository;
 import com.besedka.repository.CabinRepository;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,14 +20,14 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final CabinRepository cabinRepository;
-    private final AdminBot adminBot;
+    private final ApplicationEventPublisher eventPublisher;
 
     public BookingService(BookingRepository bookingRepository,
                           CabinRepository cabinRepository,
-                          @Lazy AdminBot adminBot) {
+                          ApplicationEventPublisher eventPublisher) {
         this.bookingRepository = bookingRepository;
         this.cabinRepository = cabinRepository;
-        this.adminBot = adminBot;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -52,7 +53,7 @@ public class BookingService {
         booking.setReminderBeforeMinutes(req.reminderBeforeMinutes());
         booking = bookingRepository.save(booking);
 
-        adminBot.notifyNewBooking(booking);
+        eventPublisher.publishEvent(new BookingCreatedEvent(this, booking));
 
         return BookingResponse.from(booking);
     }
@@ -62,10 +63,7 @@ public class BookingService {
         Booking booking = findPending(bookingId);
         booking.setStatus(BookingStatus.APPROVED);
         bookingRepository.save(booking);
-        adminBot.notifyClient(
-                booking.getClient().getTelegramUserId(),
-                "✅ Ваша заявка на " + booking.getCabin().getName() + " " + formatSlot(booking) + " одобрена!");
-        adminBot.resolveAdminMessage(booking, "✅ Одобрено");
+        eventPublisher.publishEvent(new BookingStatusChangedEvent(this, booking, BookingStatus.APPROVED));
     }
 
     @Transactional
@@ -73,10 +71,25 @@ public class BookingService {
         Booking booking = findPending(bookingId);
         booking.setStatus(BookingStatus.DECLINED);
         bookingRepository.save(booking);
-        adminBot.notifyClient(
-                booking.getClient().getTelegramUserId(),
-                "❌ К сожалению, ваша заявка на " + booking.getCabin().getName() + " " + formatSlot(booking) + " отклонена.");
-        adminBot.resolveAdminMessage(booking, "❌ Отклонено");
+        eventPublisher.publishEvent(new BookingStatusChangedEvent(this, booking, BookingStatus.DECLINED));
+    }
+
+    @Transactional
+    public void cancel(Long bookingId, Long telegramUserId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+
+        if (!booking.getClient().getTelegramUserId().equals(telegramUserId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your booking");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.APPROVED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking cannot be cancelled");
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        bookingRepository.save(booking);
+        eventPublisher.publishEvent(new BookingStatusChangedEvent(this, booking, BookingStatus.CANCELLED));
     }
 
     @Transactional(readOnly = true)
@@ -94,9 +107,5 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking is no longer pending");
         }
         return booking;
-    }
-
-    private String formatSlot(Booking b) {
-        return b.getDate() + " · " + b.getCheckInTime() + "–" + b.getCheckOutTime();
     }
 }

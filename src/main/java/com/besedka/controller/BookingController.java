@@ -36,6 +36,12 @@ public class BookingController {
         return bookingService.getClientBookings(getTelegramUserId(httpReq));
     }
 
+    @PostMapping("/{id}/cancel")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancel(@PathVariable Long id, HttpServletRequest httpReq) {
+        bookingService.cancel(id, getTelegramUserId(httpReq));
+    }
+
     private Client resolveClient(HttpServletRequest req) {
         return clientService.upsert(
                 getTelegramUserId(req),

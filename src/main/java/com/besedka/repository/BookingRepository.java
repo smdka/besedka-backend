@@ -15,7 +15,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             SELECT CASE WHEN COUNT(b) > 0 THEN TRUE ELSE FALSE END FROM Booking b
             WHERE b.cabin.id = :cabinId
               AND b.date = :date
-              AND b.status = com.besedka.model.BookingStatus.APPROVED
+              AND b.status IN (com.besedka.model.BookingStatus.PENDING, com.besedka.model.BookingStatus.APPROVED)
               AND b.checkInTime < :checkOut
               AND b.checkOutTime > :checkIn
             """)

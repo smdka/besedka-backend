@@ -47,6 +47,12 @@ public class TelegramInitDataFilter implements Filter {
 
         HttpServletRequest req = (HttpServletRequest) request;
 
+        String path = req.getRequestURI();
+        if (!path.startsWith("/api/")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         if (skipAuth) {
             req.setAttribute(ATTR_TELEGRAM_USER_ID, 0L);
             req.setAttribute(ATTR_FIRST_NAME, "Dev");

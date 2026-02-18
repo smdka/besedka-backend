@@ -1,12 +1,15 @@
 package com.besedka.bot;
 
+import com.besedka.event.BookingCreatedEvent;
+import com.besedka.event.BookingStatusChangedEvent;
 import com.besedka.model.Booking;
+import com.besedka.model.BookingStatus;
 import com.besedka.model.Client;
 import com.besedka.service.BookingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
@@ -37,7 +40,7 @@ public class AdminBot extends TelegramLongPollingBot {
             @Value("${telegram.bot-token}") String botToken,
             @Value("${telegram.bot-username}") String botUsername,
             @Value("${telegram.admin-channel-id}") String adminChannelId,
-            @Lazy BookingService bookingService) {
+            BookingService bookingService) {
         super(botToken);
         this.botUsername = botUsername;
         this.adminChannelId = adminChannelId;
@@ -66,6 +69,31 @@ public class AdminBot extends TelegramLongPollingBot {
             }
         } catch (Exception e) {
             log.error("Error handling callback '{}'", data, e);
+        }
+    }
+
+    @EventListener
+    public void onBookingCreated(BookingCreatedEvent event) {
+        notifyNewBooking(event.getBooking());
+    }
+
+    @EventListener
+    public void onBookingStatusChanged(BookingStatusChangedEvent event) {
+        Booking booking = event.getBooking();
+        switch (event.getNewStatus()) {
+            case APPROVED -> {
+                notifyClient(
+                        booking.getClient().getTelegramUserId(),
+                        "✅ Ваша заявка на " + booking.getCabin().getName() + " " + formatSlot(booking) + " одобрена!");
+                resolveAdminMessage(booking, "✅ Одобрено");
+            }
+            case DECLINED -> {
+                notifyClient(
+                        booking.getClient().getTelegramUserId(),
+                        "❌ К сожалению, ваша заявка на " + booking.getCabin().getName() + " " + formatSlot(booking) + " отклонена.");
+                resolveAdminMessage(booking, "❌ Отклонено");
+            }
+            case CANCELLED -> resolveAdminMessage(booking, "🚫 Отменено клиентом");
         }
     }
 
@@ -140,6 +168,10 @@ public class AdminBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             log.error("Failed to edit admin message for booking #{}", booking.getId(), e);
         }
+    }
+
+    private String formatSlot(Booking b) {
+        return b.getDate() + " · " + b.getCheckInTime() + "–" + b.getCheckOutTime();
     }
 
     private String fullName(Client c) {
