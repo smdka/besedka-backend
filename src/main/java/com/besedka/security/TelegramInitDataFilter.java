@@ -94,7 +94,8 @@ public class TelegramInitDataFilter implements Filter {
             String userJson = params.get("user");
             if (userJson != null) {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> user = objectMapper.readValue(userJson, Map.class);
+                Map<String, Object> user = objectMapper.readValue(
+                        URLDecoder.decode(userJson, StandardCharsets.UTF_8), Map.class);
                 req.setAttribute(ATTR_TELEGRAM_USER_ID, Long.valueOf(user.get("id").toString()));
                 req.setAttribute(ATTR_FIRST_NAME, String.valueOf(user.getOrDefault("first_name", "")));
                 req.setAttribute(ATTR_LAST_NAME,  String.valueOf(user.getOrDefault("last_name",  "")));
@@ -114,19 +115,16 @@ public class TelegramInitDataFilter implements Filter {
         Map<String, String> params = new LinkedHashMap<>();
         for (String part : initData.split("&")) {
             int eq = part.indexOf('=');
-            if (eq > 0) {
-                String key = URLDecoder.decode(part.substring(0, eq), StandardCharsets.UTF_8);
-                String value = URLDecoder.decode(part.substring(eq + 1), StandardCharsets.UTF_8);
-                params.put(key, value);
-            }
+            if (eq > 0) params.put(part.substring(0, eq), part.substring(eq + 1));
         }
         return params;
     }
 
     private boolean validateHash(Map<String, String> params, String hash) throws Exception {
+        // Use URL-decoded values for data check string
         String dataCheckString = params.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .map(e -> e.getKey() + "=" + e.getValue())
+                .map(e -> e.getKey() + "=" + URLDecoder.decode(e.getValue(), StandardCharsets.UTF_8))
                 .collect(Collectors.joining("\n"));
 
         Mac mac = Mac.getInstance("HmacSHA256");
