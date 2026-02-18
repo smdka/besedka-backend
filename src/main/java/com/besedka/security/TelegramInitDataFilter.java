@@ -75,6 +75,7 @@ public class TelegramInitDataFilter implements Filter {
             String hash = params.remove("hash");
 
             if (hash == null || !validateHash(params, hash)) {
+                log.warn("initData hash mismatch, params keys: {}", params.keySet());
                 ((HttpServletResponse) response).sendError(
                         HttpServletResponse.SC_UNAUTHORIZED, "Invalid initData signature");
                 return;
@@ -91,7 +92,7 @@ public class TelegramInitDataFilter implements Filter {
                 req.setAttribute(ATTR_USERNAME,   String.valueOf(user.getOrDefault("username",   "")));
             }
         } catch (Exception e) {
-            log.error("Failed to validate Telegram initData", e);
+            log.error("Failed to validate Telegram initData: {}", e.getMessage());
             ((HttpServletResponse) response).sendError(
                     HttpServletResponse.SC_UNAUTHORIZED, "Invalid initData");
             return;
